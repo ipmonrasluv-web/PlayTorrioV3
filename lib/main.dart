@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -44,32 +45,49 @@ void main() async {
     await WindowService.instance.initialize();
   }
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-  await EnvService.initialize();
-  await PlayerSettings.initialize();
-  await Future.wait([
-    AddonManager.instance.initialize(),
-    AppThemeService.initialize(),
-    AudiobookSettings.initialize(),
-    ContinueWatchingService.initialize(),
-    ContinueReadingService.initialize(),
-    ReaderSettings.initialize(),
-    CustomBackgroundService.initialize(),
-    DockSettings.initialize(),
-    GlassSettings.initialize(),
-    HomePageSettings.initialize(),
-    IptvController.instance.init(),
-    IptvSettings.initialize(),
-    MangaSettings.initialize(),
-    MusicSettings.initialize(),
-    MusicDownloadService.instance.init(),
-    QobuzMusicService.instance.initialize(),
-    MyListService.initialize(),
-    P2pSettingsService.initialize(),
-    DownloadService.instance.initialize(),
-    TorrentStreamService().start(),
-    DiscordRpcService.instance.initialize(),
-  ]);
+  // Do not block the first frame on network, torrent, media, or preference
+  // services. A failed or unavailable source must not leave a blank window.
   runApp(const PlayTorrioApp());
+  unawaited(_initializeServices());
+}
+
+Future<void> _initializeServices() async {
+  try {
+    await EnvService.initialize().timeout(const Duration(seconds: 10));
+    await PlayerSettings.initialize().timeout(const Duration(seconds: 10));
+  } catch (e) {
+    debugPrint('Startup configuration initialization failed: $e');
+  }
+
+  try {
+    await Future.wait([
+      AddonManager.instance.initialize(),
+      AppThemeService.initialize(),
+      AudiobookSettings.initialize(),
+      ContinueWatchingService.initialize(),
+      ContinueReadingService.initialize(),
+      ReaderSettings.initialize(),
+      CustomBackgroundService.initialize(),
+      DockSettings.initialize(),
+      GlassSettings.initialize(),
+      HomePageSettings.initialize(),
+      IptvController.instance.init(),
+      IptvSettings.initialize(),
+      MangaSettings.initialize(),
+      MusicSettings.initialize(),
+      MusicDownloadService.instance.init(),
+      QobuzMusicService.instance.initialize(),
+      MyListService.initialize(),
+      P2pSettingsService.initialize(),
+      DownloadService.instance.initialize(),
+      TorrentStreamService().start(),
+      DiscordRpcService.instance.initialize(),
+    ].map((task) => task.timeout(const Duration(seconds: 20), onTimeout: () {
+      debugPrint('Startup service timed out');
+    })), eagerError: false);
+  } catch (e) {
+    debugPrint('One or more startup services failed: $e');
+  }
 }
 
 class PlayTorrioApp extends StatefulWidget {
@@ -151,4 +169,3 @@ class _PlayTorrioAppState extends State<PlayTorrioApp>
     );
   }
 }
-

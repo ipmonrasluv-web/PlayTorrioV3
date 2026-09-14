@@ -1,0 +1,38 @@
+name: PlayTorrio macOS Intel compatible build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    # Pin the runner instead of tracking macos-latest's moving SDK target.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.9'
+          channel: stable
+          architecture: x64
+          cache: true
+
+      - name: Prepare environment
+        run: touch .env
+
+      - name: Install dependencies
+        run: arch -x86_64 flutter pub get
+
+      - name: Build Intel release
+        run: arch -x86_64 flutter build macos --release --dart-define-from-file=.env --build-name=1.1.5-compatible --build-number=2019
+
+      - name: Package portable ZIP
+        run: |
+          cd build/macos/Build/Products/Release
+          mv playtorrio.app PlayTorrio.app
+          zip -ry "$GITHUB_WORKSPACE/PlayTorrio-macOS-intel-compatible.zip" PlayTorrio.app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PlayTorrio-macOS-intel-compatible
+          path: PlayTorrio-macOS-intel-compatible.zip
